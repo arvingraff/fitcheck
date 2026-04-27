@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import type React from 'react';
 import type { ClothingItem, Category } from './data/catalog';
 import { catalog, categories, categoryLabels, categoryIcons } from './data/catalog';
 import { scrapeProduct } from './scraper';
@@ -6,54 +7,99 @@ import './App.css';
 
 type Outfit = Partial<Record<Category, ClothingItem>>;
 
-// Position of each category slot in the outfit mannequin board
-const SLOT_POSITIONS: Record<Category, { top: string; left: string; width: string }> = {
-  hat:       { top: '2%',  left: '37%', width: '26%' },
-  tshirt:    { top: '18%', left: '25%', width: '50%' },
-  jacket:    { top: '15%', left: '12%', width: '76%' },
-  accessory: { top: '18%', left: '74%', width: '20%' },
-  pants:     { top: '52%', left: '27%', width: '46%' },
-  shoes:     { top: '82%', left: '20%', width: '60%' },
+// Z-index and positioning for each layer so they stack like a real outfit on a body
+const LAYER_STYLES: Record<Category, React.CSSProperties> = {
+  shoes:     { bottom: '0%',   left: '50%', transform: 'translateX(-50%)', width: '90%',  zIndex: 1 },
+  pants:     { bottom: '18%',  left: '50%', transform: 'translateX(-50%)', width: '78%',  zIndex: 2 },
+  tshirt:    { bottom: '38%',  left: '50%', transform: 'translateX(-50%)', width: '72%',  zIndex: 3 },
+  jacket:    { bottom: '34%',  left: '50%', transform: 'translateX(-50%)', width: '88%',  zIndex: 4 },
+  accessory: { bottom: '52%',  left: '72%', transform: 'translateX(-50%)', width: '28%',  zIndex: 5 },
+  hat:       { top: '0%',      left: '50%', transform: 'translateX(-50%)', width: '38%',  zIndex: 6 },
 };
 
+// Body silhouette SVG drawn as a subtle guide behind the clothes
+function BodySilhouette() {
+  return (
+    <svg
+      viewBox="0 0 200 520"
+      xmlns="http://www.w3.org/2000/svg"
+      className="body-silhouette"
+    >
+      {/* head */}
+      <ellipse cx="100" cy="44" rx="28" ry="34" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+      {/* neck */}
+      <rect x="88" y="74" width="24" height="18" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.06)" strokeWidth="1"/>
+      {/* torso */}
+      <path d="M52 92 Q36 98 32 140 L28 240 Q28 252 40 252 L160 252 Q172 252 172 240 L168 140 Q164 98 148 92 Z" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.07)" strokeWidth="1"/>
+      {/* left arm */}
+      <path d="M52 96 Q24 108 18 170 Q14 200 20 218 Q30 226 38 216 Q40 186 46 160 L52 140Z" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" strokeWidth="1"/>
+      {/* right arm */}
+      <path d="M148 96 Q176 108 182 170 Q186 200 180 218 Q170 226 162 216 Q160 186 154 160 L148 140Z" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" strokeWidth="1"/>
+      {/* legs */}
+      <path d="M68 252 L56 400 Q54 420 70 422 L90 422 Q104 422 102 400 L100 300 L98 400 Q96 422 110 422 L130 422 Q146 422 144 400 L132 252Z" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.07)" strokeWidth="1"/>
+      {/* feet */}
+      <ellipse cx="72" cy="434" rx="22" ry="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.06)" strokeWidth="1"/>
+      <ellipse cx="128" cy="434" rx="22" ry="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.06)" strokeWidth="1"/>
+    </svg>
+  );
+}
+
 function OutfitBoard({ outfit }: { outfit: Outfit }) {
-  const items = categories.map((cat) => outfit[cat]).filter(Boolean) as ClothingItem[];
+  const hasItems = categories.some((c) => outfit[c]);
+
+  // Layer order: shoes → pants → tshirt → jacket → accessory → hat
+  const layerOrder: Category[] = ['shoes', 'pants', 'tshirt', 'jacket', 'accessory', 'hat'];
 
   return (
     <div className="outfit-board">
       <div className="outfit-board-inner">
-        {items.length === 0 && (
+        <BodySilhouette />
+
+        {!hasItems && (
           <div className="board-empty">
-            <div className="board-empty-icon">🧍</div>
-            <p>Pick items to see your outfit</p>
+            <p>Pick items to see your outfit come together</p>
           </div>
         )}
-        {categories.map((cat) => {
+
+        {layerOrder.map((cat) => {
           const item = outfit[cat];
           if (!item) return null;
-          const pos = SLOT_POSITIONS[cat];
           return (
             <div
               key={cat}
-              className="board-item"
-              style={{ top: pos.top, left: pos.left, width: pos.width }}
+              className="board-layer"
+              style={LAYER_STYLES[cat]}
               title={`${item.name} — ${item.store}`}
             >
               <img
                 src={item.imageUrl}
                 alt={item.name}
-                className="board-item-img"
+                className="board-layer-img"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src =
-                    `https://placehold.co/200x200/1a1a2e/a78bfa?text=${encodeURIComponent(item.emoji)}`;
+                    `https://placehold.co/300x300/transparent/a78bfa?text=${encodeURIComponent(item.emoji)}`;
                 }}
               />
-              <div className="board-item-label">
-                <span className="board-item-store" style={{ color: item.storeColor }}>{item.store}</span>
-              </div>
             </div>
           );
         })}
+
+        {/* Floating store tags along the side */}
+        {hasItems && (
+          <div className="board-tags">
+            {layerOrder.map((cat) => {
+              const item = outfit[cat];
+              if (!item) return null;
+              return (
+                <div key={cat} className="board-tag" style={{ borderColor: item.storeColor }}>
+                  <span>{item.emoji}</span>
+                  <span style={{ color: item.storeColor }}>{item.store}</span>
+                  <span className="board-tag-price">${item.price}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
