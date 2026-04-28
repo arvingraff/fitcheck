@@ -413,9 +413,10 @@ export default function MannequinViewer({ outfit }: Props) {
 
     let sized = false;
     const applySize = () => {
-      const w = el.clientWidth || el.offsetWidth;
-      const h = el.clientHeight || el.offsetHeight;
-      if (w > 0 && h > 0) {
+      const rect = el.getBoundingClientRect();
+      const w = rect.width || el.offsetWidth;
+      const h = rect.height || el.offsetHeight;
+      if (w > 10 && h > 10) {
         renderer.setSize(w, h);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
@@ -467,7 +468,7 @@ export default function MannequinViewer({ outfit }: Props) {
 
   return (
     <div className="mannequin-wrapper">
-      <div className="mannequin-canvas" ref={mountRef}/>
+      <div className="mannequin-canvas" ref={mountRef} style={{height: 'calc(100vh - 160px)', minHeight: 540}}/>
       {hint && outfitItems.length>0 && <div className="mannequin-hint">🖱️ Drag to rotate 360°</div>}
       <div className="mannequin-controls">
         <button className="rot-btn" onClick={()=>snap(0)}>Front</button>
