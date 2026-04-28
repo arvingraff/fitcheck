@@ -383,14 +383,8 @@ export default function MannequinViewer({ outfit }: Props) {
 
   useEffect(()=>{
     const el = mountRef.current; if(!el) return;
-    const W=el.clientWidth, H=el.clientHeight;
 
-    const renderer = new THREE.WebGLRenderer({antialias:true});
-    renderer.setSize(W,H); renderer.setPixelRatio(devicePixelRatio);
-    renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-    el.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
-
+    // Build scene immediately, but defer renderer sizing until the container has real dimensions
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a18);
     scene.fog = new THREE.FogExp2(0x0a0a18, 0.06);
@@ -400,10 +394,8 @@ export default function MannequinViewer({ outfit }: Props) {
     const fill= new THREE.DirectionalLight(0xaabbff,0.5); fill.position.set(-4,2,-3); scene.add(fill);
     scene.add(Object.assign(new THREE.DirectionalLight(0xffffff,0.3),{position:new THREE.Vector3(0,4,-6)}));
 
-    // Floor disc
     const floor = new THREE.Mesh(new THREE.CircleGeometry(4,48), new THREE.MeshStandardMaterial({color:0x111120,roughness:0.9}));
     floor.rotation.x=-Math.PI/2; floor.position.y=-2.15; floor.receiveShadow=true; scene.add(floor);
-    // Glow ring
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.1,0.04,10,60), new THREE.MeshBasicMaterial({color:0x3a2a6a,transparent:true,opacity:0.55}));
     ring.rotation.x=-Math.PI/2; ring.position.y=-2.13; scene.add(ring);
 
@@ -411,11 +403,32 @@ export default function MannequinViewer({ outfit }: Props) {
     root.add(buildMannequin());
     const cg = new THREE.Group(); root.add(cg); cgRef.current=cg;
 
-    const camera = new THREE.PerspectiveCamera(42,W/H,0.1,50);
+    const camera = new THREE.PerspectiveCamera(42,1,0.1,50);
     camera.position.set(0,0.35,4.2);
+
+    const renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setPixelRatio(devicePixelRatio);
+    renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+    rendererRef.current = renderer;
+
+    let sized = false;
+    const applySize = () => {
+      const w = el.clientWidth || el.offsetWidth;
+      const h = el.clientHeight || el.offsetHeight;
+      if (w > 0 && h > 0) {
+        renderer.setSize(w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        sized = true;
+      }
+    };
+
+    el.appendChild(renderer.domElement);
+    applySize();
 
     const animate=()=>{
       rafRef.current=requestAnimationFrame(animate);
+      if (!sized) applySize(); // keep trying until we have real dimensions
       if(!isDragging.current) rotY.current+=0.004;
       root.rotation.y=rotY.current; root.rotation.x=rotX.current;
       renderer.render(scene,camera);
@@ -427,11 +440,15 @@ export default function MannequinViewer({ outfit }: Props) {
     const up=()=>{ isDragging.current=false; };
     el.addEventListener('mousedown',dn); window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
     el.addEventListener('touchstart',dn,{passive:true}); window.addEventListener('touchmove',mv,{passive:true}); window.addEventListener('touchend',up);
-    const onResize=()=>{ const w=el.clientWidth,h=el.clientHeight; renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix(); };
+    const onResize=()=>{ applySize(); };
     window.addEventListener('resize',onResize);
 
+    // Also observe the container itself resizing (tab switch, layout change)
+    const ro = new ResizeObserver(()=>{ applySize(); });
+    ro.observe(el);
+
     return ()=>{
-      cancelAnimationFrame(rafRef.current); renderer.dispose();
+      cancelAnimationFrame(rafRef.current); ro.disconnect(); renderer.dispose();
       if(el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
       el.removeEventListener('mousedown',dn); window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up);
       el.removeEventListener('touchstart',dn); window.removeEventListener('touchmove',mv); window.removeEventListener('touchend',up);
