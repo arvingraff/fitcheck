@@ -313,8 +313,8 @@ export default function App() {
           <div style={{display: activeView === 'board' ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0}}>
             <MannequinViewer outfit={outfit} />
           </div>
-          <div style={{display: activeView === 'board' ? 'none' : 'contents'}}>
-          {filteredItems.length === 0 ? (
+
+          {activeView !== 'board' && (filteredItems.length === 0 ? (
             <div className="empty-state">No items found. Try adjusting filters or add from the web!</div>
           ) : (
             <div className="items-grid">
@@ -370,8 +370,7 @@ export default function App() {
                 );
               })}
             </div>
-          )}
-          </div>
+          ))}
         </main>
 
         {/* Right panel — Outfit Builder */}

@@ -411,25 +411,34 @@ export default function MannequinViewer({ outfit }: Props) {
     renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     rendererRef.current = renderer;
 
-    let sized = false;
+    let animFrameId = 0;
     const applySize = () => {
-      const rect = el.getBoundingClientRect();
-      const w = Math.round(rect.width) || el.offsetWidth || el.parentElement?.clientWidth || window.innerWidth * 0.6;
-      const h = Math.round(rect.height) || el.offsetHeight || 600;
-      if (w > 10 && h > 10 && (renderer.domElement.width !== w || renderer.domElement.height !== h)) {
-        renderer.setSize(w, h);
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      if (w > 10 && h > 10) {
+        renderer.setSize(w, h, false);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
-        sized = true;
       }
     };
 
     el.appendChild(renderer.domElement);
+
+    // Use IntersectionObserver so we resize as soon as the element becomes visible
+    const io = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) applySize();
+    }, { threshold: 0.01 });
+    io.observe(el);
+
+    // Also watch for size changes
+    const ro = new ResizeObserver(() => applySize());
+    ro.observe(el);
+
     applySize();
 
     const animate=()=>{
-      rafRef.current=requestAnimationFrame(animate);
-      if (!sized) applySize(); // keep trying until we have real dimensions
+      animFrameId=requestAnimationFrame(animate);
+      rafRef.current = animFrameId;
       if(!isDragging.current) rotY.current+=0.004;
       root.rotation.y=rotY.current; root.rotation.x=rotX.current;
       renderer.render(scene,camera);
@@ -444,12 +453,8 @@ export default function MannequinViewer({ outfit }: Props) {
     const onResize=()=>{ applySize(); };
     window.addEventListener('resize',onResize);
 
-    // Also observe the container itself resizing (tab switch, layout change)
-    const ro = new ResizeObserver(()=>{ applySize(); });
-    ro.observe(el);
-
     return ()=>{
-      cancelAnimationFrame(rafRef.current); ro.disconnect(); renderer.dispose();
+      cancelAnimationFrame(rafRef.current); ro.disconnect(); io.disconnect(); renderer.dispose();
       if(el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
       el.removeEventListener('mousedown',dn); window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up);
       el.removeEventListener('touchstart',dn); window.removeEventListener('touchmove',mv); window.removeEventListener('touchend',up);
