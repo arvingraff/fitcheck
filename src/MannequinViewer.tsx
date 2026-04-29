@@ -424,17 +424,15 @@ export default function MannequinViewer({ outfit }: Props) {
 
     el.appendChild(renderer.domElement);
 
-    // Use IntersectionObserver so we resize as soon as the element becomes visible
-    const io = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) applySize();
-    }, { threshold: 0.01 });
-    io.observe(el);
-
-    // Also watch for size changes
-    const ro = new ResizeObserver(() => applySize());
-    ro.observe(el);
-
-    applySize();
+    // Wait for the browser to paint before reading dimensions
+    const initSizing = () => {
+      applySize();
+      // Retry a few times in case layout isn't settled yet
+      setTimeout(applySize, 50);
+      setTimeout(applySize, 150);
+      setTimeout(applySize, 400);
+    };
+    initSizing();
 
     const animate=()=>{
       animFrameId=requestAnimationFrame(animate);
@@ -454,7 +452,7 @@ export default function MannequinViewer({ outfit }: Props) {
     window.addEventListener('resize',onResize);
 
     return ()=>{
-      cancelAnimationFrame(rafRef.current); ro.disconnect(); io.disconnect(); renderer.dispose();
+      cancelAnimationFrame(rafRef.current); renderer.dispose();
       if(el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
       el.removeEventListener('mousedown',dn); window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up);
       el.removeEventListener('touchstart',dn); window.removeEventListener('touchmove',mv); window.removeEventListener('touchend',up);

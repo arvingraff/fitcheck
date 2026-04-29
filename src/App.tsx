@@ -163,6 +163,7 @@ export default function App() {
   const [webModalOpen, setWebModalOpen] = useState(false);
   const [extraItems, setExtraItems] = useState<ClothingItem[]>([]);
   const [activeView, setActiveView] = useState<'catalog' | 'board'>('catalog');
+  const [hasMountedBoard, setHasMountedBoard] = useState(false);
 
   const allItems = useMemo(() => [...catalog, ...extraItems], [extraItems]);
   const allStores = useMemo(() => [...new Set(allItems.map((i) => i.store))].sort(), [allItems]);
@@ -300,7 +301,7 @@ export default function App() {
               </button>
               <button
                 className={`view-tab${activeView === 'board' ? ' active' : ''}`}
-                onClick={() => setActiveView('board')}
+                onClick={() => { setActiveView('board'); setHasMountedBoard(true); }}
               >
                 👗 Outfit Preview
               </button>
@@ -311,7 +312,7 @@ export default function App() {
           </div>
 
           <div style={{display: activeView === 'board' ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0}}>
-            <MannequinViewer outfit={outfit} />
+            {hasMountedBoard && <MannequinViewer outfit={outfit} />}
           </div>
 
           {activeView !== 'board' && (filteredItems.length === 0 ? (
