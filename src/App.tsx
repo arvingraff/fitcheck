@@ -311,7 +311,7 @@ export default function App() {
             )}
           </div>
 
-          <div style={{display: activeView === 'board' ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0}}>
+          <div style={{display: activeView === 'board' ? 'flex' : 'none', flex: 1, minHeight: 0}}>
             {hasMountedBoard && <MannequinViewer outfit={outfit} />}
           </div>
 

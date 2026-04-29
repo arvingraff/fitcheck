@@ -572,17 +572,12 @@ body {
 }
 .mannequin-canvas {
   width: 100%;
-  flex: 1;
+  height: calc(100vh - 155px);
   min-height: 540px;
-  height: 100%;
   cursor: grab;
   border-radius: var(--radius);
   overflow: hidden;
-}
-.mannequin-canvas canvas {
   display: block;
-  width: 100% !important;
-  height: 100% !important;
 }
 .mannequin-canvas:active { cursor: grabbing; }
 .mannequin-hint {
