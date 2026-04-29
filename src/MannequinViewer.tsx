@@ -412,31 +412,39 @@ export default function MannequinViewer({ outfit }: Props) {
     rendererRef.current = renderer;
 
     let animFrameId = 0;
-    const applySize = () => {
-      const w = el.offsetWidth;
-      const h = el.offsetHeight;
-      if (w > 10 && h > 10) {
-        renderer.setSize(w, h, false);
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
+
+    // Walk up the DOM tree to find the true rendered width (works even if a parent is display:none)
+    const getSize = () => {
+      // The canvas div itself has an inline height style, so check it first
+      const style = window.getComputedStyle(el);
+      let w = el.offsetWidth;
+      let h = el.offsetHeight;
+      // If display:none somewhere in ancestors, offsetWidth is 0 — use clientWidth of body as fallback
+      if (w < 10) w = document.body.clientWidth * 0.55;
+      if (h < 10) {
+        // parse the inline min-height
+        const mh = parseInt(style.minHeight) || 0;
+        h = mh > 10 ? mh : Math.round(window.innerHeight * 0.78);
       }
+      return { w: Math.round(w), h: Math.round(h) };
     };
 
+    const applySize = () => {
+      const { w, h } = getSize();
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    };
+
+    // Set an initial size immediately so Three.js has something real
+    applySize();
     el.appendChild(renderer.domElement);
-
-    // Wait for the browser to paint before reading dimensions
-    const initSizing = () => {
-      applySize();
-      // Retry a few times in case layout isn't settled yet
-      setTimeout(applySize, 50);
-      setTimeout(applySize, 150);
-      setTimeout(applySize, 400);
-    };
-    initSizing();
 
     const animate=()=>{
       animFrameId=requestAnimationFrame(animate);
       rafRef.current = animFrameId;
+      // Re-check size every frame — corrects itself the instant the tab becomes visible
+      applySize();
       if(!isDragging.current) rotY.current+=0.004;
       root.rotation.y=rotY.current; root.rotation.x=rotX.current;
       renderer.render(scene,camera);
@@ -448,15 +456,14 @@ export default function MannequinViewer({ outfit }: Props) {
     const up=()=>{ isDragging.current=false; };
     el.addEventListener('mousedown',dn); window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
     el.addEventListener('touchstart',dn,{passive:true}); window.addEventListener('touchmove',mv,{passive:true}); window.addEventListener('touchend',up);
-    const onResize=()=>{ applySize(); };
-    window.addEventListener('resize',onResize);
+    window.addEventListener('resize', applySize);
 
     return ()=>{
       cancelAnimationFrame(rafRef.current); renderer.dispose();
       if(el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
       el.removeEventListener('mousedown',dn); window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up);
       el.removeEventListener('touchstart',dn); window.removeEventListener('touchmove',mv); window.removeEventListener('touchend',up);
-      window.removeEventListener('resize',onResize);
+      window.removeEventListener('resize', applySize);
     };
   },[]);
 
